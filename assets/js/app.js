@@ -69,9 +69,15 @@
       else { ig.hidden = true; }
     }
     var mark = document.querySelector(".brand-mark");
-    if (mark && cfg.agentName) {
-      var parts = cfg.agentName.trim().split(/\s+/);
-      mark.textContent = (parts[0] ? parts[0][0] : "") + (parts[1] ? parts[1][0] : "");
+    if (mark) {
+      if (cfg.photo) {
+        mark.classList.add("has-photo");
+        mark.innerHTML = '<img class="brand-photo" src="' + U.esc(cfg.photo) + '" alt="' + U.esc(cfg.agentName || "") + '">';
+      } else {
+        mark.classList.remove("has-photo");
+        var parts = (cfg.agentName || "").trim().split(/\s+/);
+        mark.textContent = (parts[0] ? parts[0][0] : "") + (parts[1] ? parts[1][0] : "");
+      }
     }
   }
 

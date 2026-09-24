@@ -55,9 +55,13 @@
         '<p class="hero-kicker">Персональный каталог · Марианна Антонова</p>' +
         '<h1 class="hero-title">Актуальные объекты в одном каталоге</h1>' +
         '<p class="hero-sub">Подборка квартир, домов и инвестиционных объектов. Выберите подходящий вариант и отправьте его Марианне для уточнения деталей.</p>' +
-        '<div class="hero-actions"><button class="btn btn-primary btn-lg" data-scroll="catalog">Смотреть объекты</button></div>' +
+        '<div class="hero-actions">' +
+          '<button class="btn btn-primary btn-lg" data-scroll="catalog">Смотреть объекты</button>' +
+          '<button class="btn btn-ghost btn-lg" data-scroll="about">Обо мне</button>' +
+        '</div>' +
         '<p class="hero-note">Актуальность каталога Марианна ведёт самостоятельно. Отметьте понравившиеся объекты сердечком.</p>' +
       '</div></section>' +
+      '<section class="trust"><div class="wrap"><div class="trust-strip" id="trustStrip"></div></div></section>' +
       '<section class="catalog-section" id="catalog"><div class="wrap">' +
         '<div class="section-head"><h2 class="section-title">Каталог объектов</h2>' +
           '<span class="results-count" id="resultsCount"></span></div>' +
@@ -76,9 +80,84 @@
         '</div>' +
         '<div class="grid" id="grid"></div>' +
         '<div class="empty-state" id="emptyState" hidden>По заданным условиям ничего не найдено. Измените фильтры или сбросьте их.</div>' +
+      '</div></section>' +
+      '<section class="about" id="about"><div class="wrap">' +
+        '<div class="about-grid">' +
+          '<div class="about-main">' +
+            '<div class="about-head">' +
+              '<img class="about-photo" id="aboutPhoto" alt="" />' +
+              '<div class="about-head-txt">' +
+                '<p class="about-kicker" id="aboutKicker"></p>' +
+                '<h2 class="about-title">Веду сделку целиком</h2>' +
+              '</div>' +
+            '</div>' +
+            '<p class="about-text" id="aboutText"></p>' +
+            '<ul class="about-marks" id="aboutMarks"></ul>' +
+            '<div class="about-contacts" id="aboutContacts"></div>' +
+          '</div>' +
+          '<div class="about-steps">' +
+            '<h3 class="about-steps-title">Как проходит сделка</h3>' +
+            '<ol class="steps" id="stepsList"></ol>' +
+          '</div>' +
+        '</div>' +
       '</div></section>';
     var $ = function (sel) { return root.querySelector(sel); };
     var grid = $("#grid"), countEl = $("#resultsCount"), emptyEl = $("#emptyState");
+    var trustEl = $("#trustStrip");
+
+    // Сводка над каталогом (перенесено из прежнего сайта, но честно и динамически).
+    function statItem(val, lbl) {
+      return '<div class="trust-item"><div class="trust-val">' + U.esc(val) +
+        '</div><span class="trust-lbl">' + U.esc(lbl) + '</span></div>';
+    }
+    function renderStats() {
+      var all = store.list(false);
+      if (!all.length) { trustEl.innerHTML = ""; return; }
+      var prices = all.map(function (o) { return o.price; })
+        .filter(function (p) { return typeof p === "number" && !isNaN(p); });
+      var range = "—";
+      if (prices.length) {
+        var lo = Math.floor(Math.min.apply(null, prices) / 1e6);
+        var hi = Math.ceil(Math.max.apply(null, prices) / 1e6);
+        range = lo === hi ? (lo + " млн") : (lo + "–" + hi + " млн");
+      }
+      trustEl.innerHTML =
+        statItem(all.length, U.plural(all.length, ["объект в каталоге", "объекта в каталоге", "объектов в каталоге"])) +
+        statItem(range, "диапазон цен, ₽") +
+        statItem("100%", "юридическая проверка");
+    }
+
+    // Блок «Обо мне» и этапы сделки — из настроек профиля.
+    function contactLink(href, label, cls) {
+      return '<a class="btn ' + cls + '" target="_blank" rel="noopener" href="' + U.esc(href) + '">' + U.esc(label) + '</a>';
+    }
+    function renderAbout() {
+      var cfg = store.getConfig();
+      var photoEl = $("#aboutPhoto");
+      if (cfg.photo) {
+        photoEl.src = cfg.photo;
+        photoEl.alt = cfg.agentName || "Фото риелтора";
+        photoEl.hidden = false;
+      } else {
+        photoEl.removeAttribute("src");
+        photoEl.hidden = true;
+      }
+      $("#aboutKicker").textContent = [cfg.role, cfg.region].filter(Boolean).join(" · ");
+      $("#aboutText").textContent = cfg.about || "";
+      var marks = [cfg.credentials, cfg.responseTime].filter(Boolean);
+      $("#aboutMarks").innerHTML = marks.map(function (m) { return '<li>' + U.esc(m) + '</li>'; }).join("");
+      var c = "";
+      if (cfg.telegram) c += contactLink("https://t.me/" + encodeURIComponent(cfg.telegram.replace(/^@/, "")), "Telegram", "btn-primary");
+      if (cfg.whatsapp) c += contactLink("https://wa.me/" + cfg.whatsapp.replace(/[^0-9]/g, ""), "WhatsApp", "btn-primary");
+      if (cfg.instagram) c += contactLink(cfg.instagram, "Instagram", "btn-ghost");
+      if (cfg.phone) c += '<a class="btn btn-ghost" href="tel:' + U.esc(cfg.phone.replace(/[^0-9+]/g, "")) + '">Позвонить</a>';
+      if (!c) c = '<span class="muted sm">Контакты добавляются в панели управления.</span>';
+      $("#aboutContacts").innerHTML = c;
+      $("#stepsList").innerHTML = (MR.DEAL_STEPS || []).map(function (s) {
+        return '<li class="step"><span class="step-n">' + U.esc(s.n) + '</span>' +
+          '<div class="step-body"><b>' + U.esc(s.title) + '</b><p class="step-t">' + U.esc(s.text) + '</p></div></li>';
+      }).join("");
+    }
 
     // Города/районы — из видимых объектов.
     (function fillCities() {
@@ -171,9 +250,10 @@
       });
     });
     // Перерисовка при изменении данных (из админки)
-    store.onChange(renderGrid);
+    function refreshAll() { renderGrid(); renderStats(); renderAbout(); }
+    store.onChange(refreshAll);
 
-    renderGrid();
+    refreshAll();
     return root;
   };
 })();

@@ -259,12 +259,26 @@
     }
     function openContacts() {
       var cfg = store.getConfig();
-      var keys = ["agentName", "instagram", "telegram", "whatsapp", "phone"];
+      var keys = ["agentName", "role", "region", "about", "credentials", "responseTime", "instagram", "telegram", "whatsapp", "phone"];
       var node = el(
         '<form class="obj-form contacts-form"><h3 class="confirm-title">Контакты и профиль</h3>' +
-        '<p class="muted sm">Эти данные видит клиент: имя в шапке и кнопки «написать». В демо мессенджеры не заданы — добавьте Telegram или WhatsApp, чтобы на странице объекта появились кнопки связи.</p>' +
+        '<p class="muted sm">Эти данные видит клиент: профиль на главной, имя в шапке и кнопки «написать». Добавьте Telegram или WhatsApp — на странице объекта и в блоке «Обо мне» появятся кнопки связи.</p>' +
+        '<div class="profile-photo">' +
+          '<div class="pp-preview" id="ppPreview"></div>' +
+          '<div class="pp-controls">' +
+            '<label class="btn btn-ghost btn-sm file-btn">＋ Загрузить фото<input type="file" accept="image/*" hidden id="ppFile"></label>' +
+            '<input id="ppUrl" class="photo-url" placeholder="или ссылка на фото">' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="ppUrlAdd">Применить</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="ppClear">Убрать</button>' +
+          '</div>' +
+        '</div>' +
         '<div class="form-grid">' +
           '<label class="fld span2">Имя<input name="agentName"></label>' +
+          '<label class="fld">Роль / статус<input name="role" placeholder="Риелтор-эксперт"></label>' +
+          '<label class="fld">Регион работы<input name="region" placeholder="Геленджик и побережье"></label>' +
+          '<label class="fld span2">О себе (блок «Обо мне» на главной)<textarea name="about" rows="3"></textarea></label>' +
+          '<label class="fld span2">Гарантии / статус<input name="credentials" placeholder="Работаю официально, документы проверены"></label>' +
+          '<label class="fld span2">Время ответа<input name="responseTime" placeholder="Отвечаю в течение дня"></label>' +
           '<label class="fld span2">Instagram (ссылка)<input name="instagram"></label>' +
           '<label class="fld">Telegram (@username)<input name="telegram" placeholder="@marianna_realty"></label>' +
           '<label class="fld">WhatsApp (номер)<input name="whatsapp" placeholder="+7…"></label>' +
@@ -274,12 +288,34 @@
         '<button type="submit" class="btn btn-primary">Сохранить</button></div></form>'
       );
       keys.forEach(function (k) { var i = node.querySelector('[name="' + k + '"]'); if (i) i.value = cfg[k] || ""; });
+
+      var photoVal = cfg.photo || "";
+      var ppPreview = node.querySelector("#ppPreview");
+      function renderPP() {
+        ppPreview.innerHTML = photoVal
+          ? '<img src="' + U.esc(photoVal) + '" alt="Фото">'
+          : '<span class="muted sm">Нет фото</span>';
+      }
+      node.querySelector("#ppFile").addEventListener("change", function (e) {
+        var f = (e.target.files || [])[0];
+        if (!f) return;
+        U.readImageResized(f, 600).then(function (u) { photoVal = u; renderPP(); U.toast("Фото загружено"); });
+        e.target.value = "";
+      });
+      node.querySelector("#ppUrlAdd").addEventListener("click", function () {
+        var inp = node.querySelector("#ppUrl"), v = inp.value.trim();
+        if (v) { photoVal = v; inp.value = ""; renderPP(); }
+      });
+      node.querySelector("#ppClear").addEventListener("click", function () { photoVal = ""; renderPP(); });
+      renderPP();
+
       var close = U.modal(node);
       node.querySelector('[data-f="cancel"]').addEventListener("click", close);
       node.addEventListener("submit", function (e) {
         e.preventDefault();
         var patch = {};
         keys.forEach(function (k) { patch[k] = node.querySelector('[name="' + k + '"]').value.trim(); });
+        patch.photo = photoVal;
         store.setConfig(patch);
         U.toast("Контакты сохранены");
         close();
